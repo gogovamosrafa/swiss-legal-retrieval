@@ -33,7 +33,7 @@ reranking:
 
 dense:
   model_name: intfloat/multilingual-e5-large
-  batch_size: 64                     # Sentences per encoding batch
+  batch_size: 256                    # Sentences per encoding batch (GPU: 256, CPU: 32)
   max_length: 512
   normalize_embeddings: true
   prefix_query: "query: "           # Required prefix for E5 models

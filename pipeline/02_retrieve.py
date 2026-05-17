@@ -121,6 +121,7 @@ def main():
                 from sentence_transformers import SentenceTransformer
                 print(f"Loading dense model: {dense_cfg['model_name']}")
                 dense_model = SentenceTransformer(dense_cfg["model_name"])
+                dense_model.max_seq_length = dense_cfg.get("max_length", 512)
                 dense_laws_index = faiss.read_index(str(laws_faiss))
                 dense_laws_meta = load_jsonl_corpus(str(indices_dir / "dense_laws_meta.jsonl"))
                 print(f"  Laws FAISS: {dense_laws_index.ntotal:,} vectors")

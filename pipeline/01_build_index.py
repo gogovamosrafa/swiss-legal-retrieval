@@ -75,13 +75,13 @@ def build_dense(
 
     print(f"  Loading dense model: {model_name}")
     model = SentenceTransformer(model_name)
+    model.max_seq_length = max_length
 
     texts = [prefix + (doc.get("text") or "") for doc in documents]
     print(f"  Encoding {len(texts):,} passages (batch_size={batch_size})...")
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
-        max_length=max_length,
         normalize_embeddings=normalize,
         show_progress_bar=True,
     )
