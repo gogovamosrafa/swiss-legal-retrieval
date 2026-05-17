@@ -1,0 +1,40 @@
+# Swiss Legal Citation Retrieval - Pipeline Configuration
+
+paths:
+  data_dir: data/
+  indices_dir: indices/
+  output_dir: output/
+  federal_laws_corpus: data/federal_laws.jsonl
+  court_decisions_corpus: data/court_decisions.jsonl
+  train_csv: data/train.csv
+  test_csv: data/test.csv
+
+retrieval:
+  bm25_top_k: 100
+  dense_top_k: 100
+  rrf_k: 60                          # RRF fusion constant (rank + rrf_k in denominator)
+  rrf_bm25_weight: 1.0
+  rrf_dense_weight: 1.0
+
+reranking:
+  rerank_top_k: 20                   # How many hybrid candidates to send to reranker
+  final_threshold: 0.5               # Min rerank score to include in final answer
+  rerank_model: claude-sonnet-4-20250514
+  max_tokens: 1024
+  batch_size: 5                      # Queries per Claude API call (sequential)
+
+dense:
+  model_name: intfloat/multilingual-e5-large
+  batch_size: 64                     # Sentences per encoding batch
+  max_length: 512
+  normalize_embeddings: true
+  prefix_query: "query: "           # Required prefix for E5 models
+  prefix_passage: "passage: "
+
+evaluation:
+  citation_separator: ";"
+  metrics:
+    - macro_f1
+    - micro_f1
+    - macro_precision
+    - macro_recall

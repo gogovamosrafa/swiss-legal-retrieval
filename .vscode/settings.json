@@ -1,0 +1,31 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  "search.exclude": {
+    "data/**": true,
+    "indices/**": true,
+    "output/**": true,
+    "**/*.pkl": true,
+    "**/*.faiss": true,
+    "**/*.jsonl": true,
+    "**/*.parquet": true,
+    "**/*.gguf": true,
+    "**/*.bin": true,
+    ".venv/**": true
+  },
+
+  "files.watcherExclude": {
+    "data/**": true,
+    "indices/**": true,
+    "output/**": true,
+    ".venv/**": true
+  },
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    ".venv": true
+  }
+}

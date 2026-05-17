@@ -215,12 +215,21 @@ CLAUDE.md
 data/
 output/
 
+# Pipeline artefacts
+indices/
+candidates.jsonl
+reranked.jsonl
+
 # Large data files (indices, corpora)
 *.pkl
 *.jsonl
 *.parquet
+*.faiss
 
 # Model files
 models/
 *.gguf
 *.bin
+
+# Secrets
+.env
