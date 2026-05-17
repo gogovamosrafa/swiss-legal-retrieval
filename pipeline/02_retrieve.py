@@ -32,20 +32,14 @@ def load_config(config_path: Path) -> dict:
 
 
 def load_bm25(index_path: Path) -> BM25Index:
-    idx = BM25Index()
-    idx.load(str(index_path))
-    return idx
+    # load() is a classmethod that returns a new instance — must use the return value
+    return BM25Index.load(str(index_path))
 
 
 def bm25_search(index: BM25Index, query: str, top_k: int) -> list[tuple[dict, float]]:
+    # search() with return_scores=True returns dicts with "_score" key
     results = index.search(query, top_k=top_k, return_scores=True)
-    if results and isinstance(results[0], tuple):
-        return results  # already (doc, score)
-    # fallback: BM25Index.search may return just docs
-    scores = index.bm25.get_scores(index.tokenize(query))
-    docs = index.documents
-    ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
-    return ranked[:top_k]
+    return [(doc, doc.pop("_score", 0.0)) for doc in results]
 
 
 def dense_search(model, faiss_index, meta: list[dict], query: str, top_k: int, prefix: str, normalize: bool):
@@ -100,7 +94,14 @@ def main():
 
     print("Loading BM25 indices...")
     bm25_laws = load_bm25(indices_dir / "bm25_laws.pkl")
-    bm25_courts = load_bm25(indices_dir / "bm25_courts.pkl")
+
+    courts_pkl = indices_dir / "bm25_courts.pkl"
+    if courts_pkl.exists():
+        bm25_courts = load_bm25(courts_pkl)
+        print(f"  Courts BM25 loaded ({courts_pkl.stat().st_size/1e6:.0f} MB)")
+    else:
+        bm25_courts = None
+        print("  [INFO] Court BM25 not found — laws-only retrieval (skip_court_bm25=true in config)")
 
     use_dense = not args.skip_dense
     dense_model = None
@@ -148,9 +149,9 @@ def main():
             query_id = row["query_id"]
             query_text = row["query"]
 
-            # BM25 retrieval (laws + courts combined)
+            # BM25 retrieval
             bm25_law_results = bm25_search(bm25_laws, query_text, bm25_top_k)
-            bm25_court_results = bm25_search(bm25_courts, query_text, bm25_top_k)
+            bm25_court_results = bm25_search(bm25_courts, query_text, bm25_top_k) if bm25_courts else []
             bm25_all = bm25_law_results + bm25_court_results
             bm25_ranked = [(doc.get("citation", doc.get("id", "")), score)
                            for doc, score in sorted(bm25_all, key=lambda x: x[1], reverse=True)]

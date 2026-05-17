@@ -10,6 +10,13 @@ paths:
   val_csv: data/val.csv
   test_csv: data/test.csv
 
+indexing:
+  # court_considerations.csv has 2.47M rows; BM25Okapi stores full tokenized corpus in RAM,
+  # causing MemoryError even at 500K rows. Gold citations are 98.8% laws, so skipping
+  # court BM25 has minimal impact. Set skip_court_bm25: false to attempt (needs ~16 GB RAM).
+  skip_court_bm25: true
+  max_court_rows: 500000   # used only when skip_court_bm25: false
+
 retrieval:
   bm25_top_k: 100
   dense_top_k: 100

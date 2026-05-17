@@ -109,14 +109,18 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(ROOT / args.config)
-    paths = cfg["paths"]
+    paths     = cfg["paths"]
     dense_cfg = cfg["dense"]
+    idx_cfg   = cfg.get("indexing", {})
 
     indices_dir = ROOT / paths["indices_dir"]
     indices_dir.mkdir(parents=True, exist_ok=True)
 
     laws_path   = ROOT / paths["laws_corpus"]
     courts_path = ROOT / paths["courts_corpus"]
+
+    # max_court_rows: from --max-court-rows flag, then config, then None (all rows)
+    max_court_rows = args.max_court_rows or idx_cfg.get("max_court_rows") or None
 
     for p in [laws_path, courts_path]:
         if not p.exists():
@@ -133,16 +137,24 @@ def main():
     print("\n=== Building BM25: laws ===")
     build_bm25(laws, indices_dir / "bm25_laws.pkl")
 
-    print("\n=== Loading court corpus ===")
-    print(f"  Streaming {courts_path.name} ({courts_path.stat().st_size/1e9:.1f} GB)...")
-    courts = load_csv_corpus(courts_path, max_rows=args.max_court_rows)
-    print(f"  {len(courts):,} considerations loaded")
+    skip_court_bm25 = idx_cfg.get("skip_court_bm25", True)
 
-    print("\n=== Building BM25: courts ===")
-    build_bm25(courts, indices_dir / "bm25_courts.pkl")
+    if skip_court_bm25:
+        print("\n[SKIP] Court BM25 skipped (indexing.skip_court_bm25=true)")
+        print("       Reason: 2.47M rows causes MemoryError in rank-bm25 pickle")
+        print("       Impact: minimal — only 1.2% of gold citations are BGE")
+        courts = []
+    else:
+        print("\n=== Loading court corpus ===")
+        print(f"  Streaming {courts_path.name} ({courts_path.stat().st_size/1e9:.1f} GB)...")
+        if max_court_rows:
+            print(f"  Limiting to {max_court_rows:,} rows (indexing.max_court_rows in config)")
+        courts = load_csv_corpus(courts_path, max_rows=max_court_rows)
+        print(f"  {len(courts):,} considerations loaded")
 
-    # Free court memory before dense step
-    del courts
+        print("\n=== Building BM25: courts ===")
+        build_bm25(courts, indices_dir / "bm25_courts.pkl")
+        del courts
 
     # ── Dense ────────────────────────────────────────────────────────────────
     laws_only = dense_cfg.get("laws_only", True)
