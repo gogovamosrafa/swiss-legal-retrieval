@@ -4,9 +4,10 @@ paths:
   data_dir: data/
   indices_dir: indices/
   output_dir: output/
-  federal_laws_corpus: data/federal_laws.jsonl
-  court_decisions_corpus: data/court_decisions.jsonl
+  laws_corpus: data/laws_de.csv
+  courts_corpus: data/court_considerations.csv
   train_csv: data/train.csv
+  val_csv: data/val.csv
   test_csv: data/test.csv
 
 retrieval:
@@ -30,6 +31,7 @@ dense:
   normalize_embeddings: true
   prefix_query: "query: "           # Required prefix for E5 models
   prefix_passage: "passage: "
+  laws_only: true                    # court_considerations has 2.47M rows (~10GB FAISS) — BM25 only for courts
 
 evaluation:
   citation_separator: ";"

@@ -22,9 +22,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from omnilex.retrieval.bm25_index import BM25Index, load_jsonl_corpus
 
+# court_considerations has 2.47M rows → dense index not built by default
+# dense search is laws-only unless dense.laws_only=false in config
+
 
 def load_config(config_path: Path) -> dict:
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -76,7 +79,7 @@ def reciprocal_rank_fusion(
 def main():
     parser = argparse.ArgumentParser(description="Hybrid BM25 + dense retrieval")
     parser.add_argument("--config", default="config/config.yaml")
-    parser.add_argument("--split", default="test", choices=["train", "test"],
+    parser.add_argument("--split", default="test", choices=["train", "val", "test"],
                         help="Which split to retrieve for")
     parser.add_argument("--skip-dense", action="store_true")
     parser.add_argument("--output", default=None, help="Override output path")
@@ -91,7 +94,7 @@ def main():
     output_dir = ROOT / paths["output_dir"]
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    csv_key = "train_csv" if args.split == "train" else "test_csv"
+    csv_key = {"train": "train_csv", "val": "val_csv", "test": "test_csv"}[args.split]
     queries_df = pd.read_csv(ROOT / paths[csv_key])
     print(f"Loaded {len(queries_df)} queries from {paths[csv_key]}")
 
@@ -104,9 +107,10 @@ def main():
     dense_laws_index = dense_courts_index = None
     dense_laws_meta = dense_courts_meta = []
 
+    laws_only_dense = dense_cfg.get("laws_only", True)
+
     if use_dense:
         laws_faiss = indices_dir / "dense_laws.faiss"
-        courts_faiss = indices_dir / "dense_courts.faiss"
         if not laws_faiss.exists():
             print("[WARN] Dense index not found, falling back to BM25-only")
             use_dense = False
@@ -117,11 +121,17 @@ def main():
                 print(f"Loading dense model: {dense_cfg['model_name']}")
                 dense_model = SentenceTransformer(dense_cfg["model_name"])
                 dense_laws_index = faiss.read_index(str(laws_faiss))
-                dense_courts_index = faiss.read_index(str(indices_dir / "dense_courts.faiss"))
                 dense_laws_meta = load_jsonl_corpus(str(indices_dir / "dense_laws_meta.jsonl"))
-                dense_courts_meta = load_jsonl_corpus(str(indices_dir / "dense_courts_meta.jsonl"))
-                print(f"  Laws FAISS: {dense_laws_index.ntotal} vectors")
-                print(f"  Courts FAISS: {dense_courts_index.ntotal} vectors")
+                print(f"  Laws FAISS: {dense_laws_index.ntotal:,} vectors")
+
+                courts_faiss = indices_dir / "dense_courts.faiss"
+                if not laws_only_dense and courts_faiss.exists():
+                    dense_courts_index = faiss.read_index(str(courts_faiss))
+                    dense_courts_meta = load_jsonl_corpus(str(indices_dir / "dense_courts_meta.jsonl"))
+                    print(f"  Courts FAISS: {dense_courts_index.ntotal:,} vectors")
+                else:
+                    dense_courts_index = None
+                    dense_courts_meta = []
             except ImportError:
                 print("[WARN] faiss/sentence-transformers not available, BM25-only mode")
                 use_dense = False
@@ -158,12 +168,14 @@ def main():
                     query_text, dense_top_k,
                     dense_cfg["prefix_query"], dense_cfg["normalize_embeddings"]
                 )
-                qc = dense_search(
-                    dense_model, dense_courts_index, dense_courts_meta,
-                    query_text, dense_top_k,
-                    dense_cfg["prefix_query"], dense_cfg["normalize_embeddings"]
-                )
-                dense_all = ql + qc
+                dense_all = ql
+                if dense_courts_index is not None:
+                    qc = dense_search(
+                        dense_model, dense_courts_index, dense_courts_meta,
+                        query_text, dense_top_k,
+                        dense_cfg["prefix_query"], dense_cfg["normalize_embeddings"]
+                    )
+                    dense_all = ql + qc
                 dense_ranked = [(doc.get("citation", doc.get("id", "")), score)
                                 for doc, score in sorted(dense_all, key=lambda x: x[1], reverse=True)]
                 for doc, _ in dense_all:

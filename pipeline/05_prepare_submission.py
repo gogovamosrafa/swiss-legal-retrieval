@@ -21,28 +21,31 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from omnilex.citations.normalizer import CitationNormalizer
 from omnilex.evaluation.scorer import validate_submission_format
-from omnilex.retrieval.bm25_index import load_jsonl_corpus
 
 
 def load_config(config_path: Path) -> dict:
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def load_corpus_citations(laws_path: Path, courts_path: Path) -> set[str]:
-    """Return the set of canonical citation IDs present in the corpus."""
+    """Return canonical citation IDs present in the corpus (reads CSVs)."""
+    import csv
     normalizer = CitationNormalizer()
     valid = set()
 
     for path in [laws_path, courts_path]:
         if not path.exists():
+            print(f"  [WARN] Corpus file not found: {path}")
             continue
-        docs = load_jsonl_corpus(str(path))
-        for doc in docs:
-            raw = doc.get("citation") or doc.get("id") or ""
-            canonical = normalizer.canonicalize(raw)
-            if canonical:
-                valid.add(canonical)
+        print(f"  Reading citations from {path.name}...")
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                raw = row.get("citation") or ""
+                canonical = normalizer.canonicalize(raw)
+                if canonical:
+                    valid.add(canonical)
 
     return valid
 
@@ -78,8 +81,8 @@ def main():
     if args.validate_corpus:
         print("Loading corpus for citation validation...")
         corpus_cids = load_corpus_citations(
-            ROOT / paths["federal_laws_corpus"],
-            ROOT / paths["court_decisions_corpus"],
+            ROOT / paths["laws_corpus"],
+            ROOT / paths["courts_corpus"],
         )
         print(f"  Corpus contains {len(corpus_cids)} canonical citations")
 

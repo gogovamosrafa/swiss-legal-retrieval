@@ -60,12 +60,15 @@ def resolve_paths(config: dict) -> dict:
         "test":  data_dir / Path(raw.get("test_csv",  "data/test.csv")).name,
     }
 
+    laws_file   = Path(raw.get("laws_corpus",   "data/laws_de.csv")).name
+    courts_file = Path(raw.get("courts_corpus", "data/court_considerations.csv")).name
+
     return {
         "data_dir":   data_dir,
         "index_dir":  index_dir,
         "output_dir": output_dir,
-        "laws":       data_dir / "laws_de.csv",
-        "courts":     data_dir / "court_considerations.csv",
+        "laws":       data_dir / laws_file,
+        "courts":     data_dir / courts_file,
         "split_csv":  split_csv,
         "candidates": output_dir / "candidates.jsonl",
         "reranked":   output_dir / "reranked.jsonl",
@@ -119,7 +122,7 @@ def print_step_header(step_num: int, paths: dict, split: str, skip_dense: bool, 
     print("  Input:")
     for i in inputs:
         exists = Path(i).exists()
-        flag = "✓" if exists else "✗ MISSING"
+        flag = "OK" if exists else "MISSING"
         print(f"    [{flag}] {i}")
     print("  Output:")
     for o in outputs:
@@ -174,7 +177,7 @@ def main():
     if not config_path.exists():
         print(f"[ERROR] Config not found: {config_path}")
         sys.exit(1)
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     paths = resolve_paths(config)
